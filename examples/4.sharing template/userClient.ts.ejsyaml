@@ -1,0 +1,6 @@
+api: User
+methods:
+- "getUser|id: string|User"
+- "setUser|user: User, force: boolean|boolean"
+--- |
+<%- include('./client.ejs') %>

@@ -1,13 +1,34 @@
 # ejs-gen README
 
+EJS Code Generator
+
+![screen shot](docs/screenshot.png)
+
 ## Features
 
 This extension generate text file powered by [ejs template engine](http://ejs.co).
 
 ## Usage
 
-This extension generates when `*.ejsgen.yaml` or `*.ejsgen.yml` file is saved.
-`*.ejsgen.yaml` file must have two documents. first document is input and second document is ejs template.
+This extension generates text file by writing `.ejsyaml` files. `.ejsyaml` file is `.yaml` file that contains two documents.
+The first document is `input data` to generate code and the second document is `EJS template`.
+
+```yaml
+# input data
+name: world
+--- |
+# EJS template
+hello <%- name %> 
+```
+
+Above `helloworld.txt.ejsyaml` file will generate following `helloworld.txt` file.
+```yaml
+# EJS template
+hello world
+```
+
+That's it. All you have to do is that write input data and ejs template in single yaml file(`.ejsyaml`) and save it.
+This extension will automatically catch when file is saved and generate code.
 
 ## Extension Settings
 
@@ -17,68 +38,19 @@ This extension contributes the following settings:
 * `ejs-gen.disable`: disable this extension
 
 
-## examples
+## Examples
 
-### example 1 - helloworld
-`helloworld.txt.ejsgen.yaml`
-```yaml
-name: world         # <-- input yaml
---- |
-hello <%- name %>   # <-- ejs template
-```
-
-`helloworld.txt`
-```
-hello world   # <-- ejs template
-```
-
-### example 2 - sharing template
-input - `code.ts.ejsgen.yaml`
-```yaml
-colors:
-- Red
-- Blue
-- Black
---- |
-<%- include('./gen.ejs') %>
-```
-input - `gen.ejs`
-```ejs
-<% for (let color of colors) { -%>
-function <%- color %>() {
-<%- $.block(`${color}-implementation`, '  throw new Error(\'not implemented\');') -%>
-}
-
-<% } %>
-```
-
-output - `code.ts`
-```typescript
-function Red() {
-// -->> Red-implementation
-  throw new Error('not implemented');
-// <<-- Red-implementation
-}
-
-function Blue() {
-// -->> Blue-implementation
-  throw new Error('not implemented');
-// <<-- Blue-implementation
-}
-
-function Black() {
-// -->> Black-implementation
-  throw new Error('not implemented');
-// <<-- Black-implementation
-}
-
-```
+please check out other examples in [github page](https://github.com/dirty49374/vscode-ejs-gen/examples).
 
 ## Known Issues
 
 Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
+
+### 0.0.4
+
+refactoring.
 
 ### 0.0.3
 

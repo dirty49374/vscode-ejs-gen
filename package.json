@@ -1,10 +1,10 @@
 {
 	"name": "ejs-gen",
-	"displayName": "ejs-gen",
-	"description": "generate text file using javascript ejs template engine",
+	"displayName": "EJS Code Generator",
+	"description": "code generator powered by ejs template engine",
 	"publisher": "dirty49374",
 	"repository": "https://github.com/dirty49374/vscode-ejs-gen",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"engines": {
 		"vscode": "^1.45.0"
 	},
@@ -49,9 +49,13 @@
 		"vscode-test": "^1.3.0"
 	},
 	"dependencies": {
+		"@types/deasync": "^0.1.1",
 		"@types/ejs": "^3.0.4",
 		"@types/js-yaml": "^3.12.4",
+		"@types/node-fetch": "^2.5.7",
+		"deasync": "^0.1.20",
 		"ejs": "^3.1.3",
-		"js-yaml": "^3.14.0"
+		"js-yaml": "^3.14.0",
+		"node-fetch": "^2.6.0"
 	}
 }

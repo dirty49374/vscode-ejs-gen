@@ -1,41 +1,37 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { generateFile } from './generator';
-import { basename, extname } from 'path';
+import { generateFile, ejsyamlExtension } from './generator';
+import { existsSync } from 'fs';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	const ext1 = '.ejsgen.yaml';
-	const ext2 = '.ejsgen.yml';
-
 	let enabled = true;
 
 	vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-		if (enabled) {
-			const lowerPath = document.fileName.toLowerCase();
+		if (!enabled) {
+			return;
+		}
 
-			let lowerExt = null;
-			if (lowerPath.endsWith(ext1)) {
-				lowerExt = ext1;
-			} else if (lowerPath.endsWith(ext2)) {
-				lowerExt = ext2;
-			}
+		let ejsyamlFileName: string | null = null;
 
-			if (lowerExt) {
-				const inputPath = document.fileName;
-				const outputPath = inputPath.substr(0, inputPath.length - lowerExt.length);
-				const yaml = document.getText()
+		if (document.fileName.endsWith(ejsyamlExtension)) {
+			ejsyamlFileName = document.fileName;
+		} else if (existsSync(document.fileName + ejsyamlExtension)) {
+			ejsyamlFileName = document.fileName + ejsyamlExtension;
+		}
 
-				try {
-					generateFile(inputPath, outputPath, yaml);
-					vscode.window.showInformationMessage(`file '${basename(outputPath)}' generated`);
+		if (ejsyamlFileName !== null) {
+			(async () => {
+				try {	
+					const files = await generateFile(ejsyamlFileName);
+					vscode.window.showInformationMessage(`${files.length ? files.join(',') : 'no file'} generated`);
 				} catch (e) {
-					vscode.window.showErrorMessage(`ejs-gen failed - ${e.message}`);
-				}
-			}
+					vscode.window.showErrorMessage(e.message);
+				}	
+			})();
 		}
 	});
 

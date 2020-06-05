@@ -1,0 +1,35 @@
+<%- $.block('CUSTOM-IMPORT') %>
+
+import { BaseClient, post, handleError } from './lib';
+
+interface I<%- api %>Client {
+<%
+    for (let api of methods) {
+      let [ name, params, type ] = api.split('|');
+-%>
+  <%- name %>(<%- params %>): Promise<<%- type %>>;
+<%  } -%>
+}
+
+class <%- api %>Client extends BaseClient implements I<%- api %>Client {
+  constructor(baseUri: string) {
+    super(baseUri);
+  }
+
+<%
+    for (let api of methods) {
+      let [ name, params, type ] = api.split('|');
+-%>
+  async <%- name %>(<%- params %>): Promise<<%- type %>> {
+    try {
+      return await post<<%- type %>>('/<%- name %>', { <%- params.split(',').map(p => p.split(':')[0]) %> });
+    } catch (e) {
+      handleError(e);
+      throw e;
+    }
+  }
+
+<%  } -%>
+}
+
+<%- $.block('CUSTOM-IMPLEMENTATION') %>

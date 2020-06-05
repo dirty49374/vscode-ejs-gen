@@ -8,6 +8,7 @@ null
   const rpcs = data ? data.rpcs : [];
 
 -%>
+// <%- $.name %>
 <%- $.block('CONFIG', '/*\nrpcs:\n- Ping\n*/') %>
 
 <%

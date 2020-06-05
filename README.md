@@ -2,7 +2,7 @@
 
 EJS Code Generator
 
-![screen shot](docs/screenshot.png)
+![screen shot](https://raw.githubusercontent.com/dirty49374/vscode-ejs-gen/master/docs/screenshot.png)
 
 ## Features
 
@@ -47,6 +47,10 @@ please check out other examples in [github page](https://github.com/dirty49374/v
 Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
+
+### 0.0.5
+
+remove console logs
 
 ### 0.0.4
 

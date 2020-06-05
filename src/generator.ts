@@ -26,7 +26,6 @@ function escapeRegex(regex: string): string {
 
 function makeMarkerRegex(marker: string): RegExp {
   const regexp = '^\\s*' + escapeRegex(marker).replace('@name', '([0-9A-Za-z-_:]+)') + '(?:.|\r)*$';
-  console.error(regexp);
   return new RegExp(regexp);
 }
 
@@ -44,18 +43,14 @@ function extractBlocks(source: string, beginMarker: string, endMarker: string): 
     if (block === null) {
       const m = line.match(beginMarkerRegex);
       if (m !== null) {
-        console.error('BLOCK BEGIN: ' + line);
         block = {
           name: m[1],
           beginMarker: line,
         };
-      } else {
-        console.log('BLOCK ----: ' + line);
       }
     } else {
       const m = line.match(endMarkerRegex);
       if (m != null) {
-        console.error('BLOCK END: ' + line);
         block.content = contents.join('\n');
         block.endMarker = line.endsWith('\r') ? line.substr(0, line.length - 1) : line;
         blocks[block.name!] = block;
@@ -63,7 +58,6 @@ function extractBlocks(source: string, beginMarker: string, endMarker: string): 
         contents = [];
         block = null;
       } else {
-        console.log('BLOCK ----: ' + line);
         contents.push(line);
       }
     }
@@ -78,12 +72,15 @@ class Context {
   public blocks: Blocks = {};
   public canceled = false;
   public lastOutput: string | null = null;
+  public name: string;
 
   constructor(
     public inputFile: string,
     public outputFile: string,
     public data: any,
     private generatedFiles: string[]) {
+
+    this.name = basename(this.inputFile).split('.')[0];
     this.$init();
     this.marker(this.beginMarker, this.endMarker);
   }

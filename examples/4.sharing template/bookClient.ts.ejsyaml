@@ -1,0 +1,6 @@
+api: Book
+methods:
+- "getBook|id: string|Book"
+- "setBook|book: Book, force: boolean|boolean"
+--- |
+<%- include('./client.ejs') %>

@@ -1,0 +1,78 @@
+package: main
+enums:
+  Animal:
+    - Dog
+    - Cat
+  Size:
+    - Big
+    - Small
+--- |
+package <%- package %>
+
+import (
+  "bytes"
+  "errors"
+  "fmt"
+  "json"
+)
+
+<% for (let [ enumName, valueNames ] of Object.entries(enums)) { -%>
+//////////////////
+// <%- enumName %>:
+
+type <%- enumName %> int
+
+const (
+<%   for (let value=0; value<valueNames.length; ++value) { -%>
+  <%- enumName %>_<%- valueNames[value] %> <%- enumName %> = <%- value %>
+<%   } -%>
+)
+
+var <%- enumName %>_names = map[int]string{
+<%   for (let value=0; value<valueNames.length; ++value) { -%>
+  <%- value %>: "<%- valueNames[value] %>",
+<%   } -%>
+}
+
+var <%- enumName %>_values = map[string]int{
+<%   for (let value=0; value<valueNames.length; ++value) { -%>
+  "<%- valueNames[value] %>": <%- value %>,
+<%   } -%>
+}
+
+func (e <%- enumName %>) String() string {
+  return <%- enumName %>_names[int(e)]
+}
+
+func (e <%- enumName %>) Validate() error {
+  if int(e) < 0 || 4 <= int(e) {
+    return errors.New("unknown enum value")
+  }
+  return nil
+}
+
+func (e <%- enumName %>) MarshalJSON() ([]byte, error) {
+  buffer := bytes.NewBufferString(`"`)
+  buffer.WriteString(<%- enumName %>_names[int(e)])
+  buffer.WriteString(`"`)
+  return buffer.Bytes(), nil
+}
+
+func (e *<%- enumName %>) UnmarshalJSON(b []byte) error {
+  var j string
+  err := json.Unmarshal(b, &j)
+  if err != nil {
+    return err
+  }
+
+  v, ok := <%- enumName %>_values[j]
+  if !ok {
+    return fmt.Errorf("unknown enum value = %s", j)
+  }
+
+  *e = <%- enumName %>(v)
+  return nil
+}
+
+
+<% } -%>

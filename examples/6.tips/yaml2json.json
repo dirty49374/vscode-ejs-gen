@@ -1,0 +1,7 @@
+{
+    "server": "1.1.1.1",
+    "auth": {
+        "userId": "hello",
+        "password": "world"
+    }
+}

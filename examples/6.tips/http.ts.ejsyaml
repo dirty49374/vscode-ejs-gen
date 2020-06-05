@@ -1,0 +1,13 @@
+null
+--- |
+export const countryCodes = {
+<%
+  const countries = await (await $.fetch('http://country.io/names.json')).json();
+
+  for (let [ code, name ] of Object.entries(countries)) {
+-%>
+  '<%- code %>': '<%- name %>',
+<%
+  }
+-%>
+};

@@ -1,0 +1,4 @@
+name: world
+greet: hello
+--- |
+<%- greet %> <%- name %>

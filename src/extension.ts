@@ -1,8 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { generateFile } from './generator';
-import { extname } from 'path';
+import { generateFile, ejsyamlExtension } from './generator';
+import { existsSync } from 'fs';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -11,12 +11,27 @@ export function activate(context: vscode.ExtensionContext) {
 	let enabled = true;
 
 	vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-		if (enabled && extname(document.fileName).toLowerCase() == '.ejs-gen') {
-			const fileName = document.fileName;
-			const template = document.getText()
+		if (!enabled) {
+			return;
+		}
 
-			generateFile(fileName, template);
-			vscode.window.showInformationMessage('generated');
+		let ejsyamlFileName: string | null = null;
+
+		if (document.fileName.endsWith(ejsyamlExtension)) {
+			ejsyamlFileName = document.fileName;
+		} else if (existsSync(document.fileName + ejsyamlExtension)) {
+			ejsyamlFileName = document.fileName + ejsyamlExtension;
+		}
+
+		if (ejsyamlFileName !== null) {
+			(async () => {
+				try {	
+					const files = await generateFile(ejsyamlFileName);
+					vscode.window.showInformationMessage(`${files.length ? files.join(',') : 'no file'} generated`);
+				} catch (e) {
+					vscode.window.showErrorMessage(e.message);
+				}	
+			})();
 		}
 	});
 

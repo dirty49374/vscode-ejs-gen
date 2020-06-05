@@ -1,0 +1,19 @@
+types:
+- User
+- Company
+- Product
+- Order
+--- |
+import { <%- types.join(', ') %> } from "./types";
+
+<%- $.block('IMPORT') %>
+
+export interface IDataStore {
+<% for (let type of types) { -%>
+  get<%- type %>(<%- type.toLowerCase() %>Id: string): <%- type %>;
+<% } -%>
+}
+
+class DataStore implements IDataStore {
+<%- $.block('IMPLEMENTATION') %>
+}

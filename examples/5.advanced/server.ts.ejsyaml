@@ -1,0 +1,28 @@
+null
+--- |
+<%
+  const lines = $.rawBlock('CONFIG').split('\n');
+  const yaml = lines.slice(1, lines.length - 1).join('\n');
+  const data = $.fromYaml(yaml);
+
+  const rpcs = data ? data.rpcs : [];
+
+-%>
+<%- $.block('CONFIG', '/*\nrpcs:\n- Ping\n*/') %>
+
+<%
+    for (let name of rpcs) { -%>
+import { <%- name %>Request, <%- name %>Response, <%- name %>Handler } from './<%- name.toLowerCase() %>';
+<% } -%>
+
+export interface IRpcServer {
+<% for (let name of rpcs) { -%>
+    <%- name %>(req: <%- name %>Request): Promise<<%- name %>Response>;
+<% } -%>
+}
+
+export class RpcServer implements IRpcServer {
+<% for (let name of rpcs) { -%>
+    <%- name %> = <%- name %>Handler;
+<% } -%>
+}

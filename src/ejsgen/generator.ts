@@ -1,8 +1,7 @@
 import * as fs from 'fs';
-import { basename } from 'path';
+import * as path from 'path';
 import { readFileSync, writeFileSync } from 'fs';
 import { render } from 'ejs';
-import * as Path from 'path';
 import { loadYaml, loadYamls, evaluate, dumpYaml } from './yaml';
 import { extractBlocks, Blocks } from './block';
 
@@ -24,7 +23,7 @@ class Context {
     private generatedFiles: string[],
     public autogen: boolean) {
 
-    this.name = name || basename(this.inputFile).split('.')[0];
+    this.name = name || path.basename(this.inputFile).split('.')[0];
     this.$init();
     this.marker(this.beginMarker, this.endMarker);
   }
@@ -63,17 +62,17 @@ class Context {
       : `${this.beginMarker?.replace('@name', name)}\n${defaultContent || ''}\n${this.endMarker?.replace('@name', name)}`;
   }
 
-  out(path: string) {
-    this.outputFile = this.resolve(path);
+  out(p: string) {
+    this.outputFile = this.resolve(p);
     this.lastOutput = null;
     this.$init();
   }
 
-  resolve(path: string): string {
-    if (Path.isAbsolute(path)) {
-      return path;
+  resolve(p: string): string {
+    if (path.isAbsolute(p)) {
+      return p;
     }
-    return Path.resolve(Path.dirname(this.outputFile), path);
+    return path.resolve(path.dirname(this.outputFile), p);
   }
 
   render(ejsPath: string, outputPath: string, data: any) {
@@ -87,7 +86,7 @@ class Context {
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
       writeFileSync(ctx.outputFile, output, 'utf-8');
-      this.generatedFiles.push(basename(outputFile))
+      this.generatedFiles.push(path.basename(outputFile))
     }
   }
 
@@ -95,13 +94,21 @@ class Context {
     this.canceled = true;
   }
 
-  read(path: string): string | null {
+  read(p: string): string | null {
     try {
-      const file = Path.resolve(Path.dirname(this.inputFile), path);
+      const file = path.resolve(path.dirname(this.inputFile), p);
       return readFileSync(file, 'utf-8');
     } catch (e) {
       return null;
     }
+  }
+
+  upperFirst(text: string): string {
+    return text[0].toUpperCase() + text.substr(1);
+  }
+
+  lowerFirst(text: string): string {
+    return text[0].toUpperCase() + text.substr(1);
   }
 
   fromYaml(text: string) {
@@ -115,6 +122,10 @@ class Context {
   toYaml(doc: any) {
     return dumpYaml(doc);
   }
+
+  dirname = path.dirname;
+  basename = path.basename;
+  extname = path.extname;
 }
 
 export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
@@ -136,7 +147,7 @@ export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
       writeFileSync(ctx.outputFile, output, 'utf-8');
-      generatedFiles.push(basename(outputFile))
+      generatedFiles.push(path.basename(outputFile))
     }
   }
 
@@ -160,7 +171,7 @@ export const generateText = async (ejsyamlPath: string, outputFile: string, last
 
   const generatedFiles: string[] = [];
   for (let template of templates) {
-    const ctx = new Context(inputFile, outputFile, basename(outputFile).split('.')[0], data, lastOutput, generatedFiles, false);
+    const ctx = new Context(inputFile, outputFile, path.basename(outputFile).split('.')[0], data, lastOutput, generatedFiles, false);
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     return ctx.canceled ? null : output;
   }

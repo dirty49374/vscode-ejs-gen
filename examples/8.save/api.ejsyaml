@@ -1,0 +1,22 @@
+api:
+  - get
+  - set
+--- |
+<%_ for (let name of api) { _%>
+function <%- name %>() {
+  return fetch('/<%- name %>');
+}
+
+<%_ } _%>
+
+<%- $.save('client.js') _%>
+function register(app) {
+<%_ for (let name of api) { _%>
+  app.get('/<%- name %>', (req, res) => {
+    res.send({ api: '<%- name %>' });
+  });
+
+<%_ } _%>
+}
+
+<%- $.save('server.js') %>

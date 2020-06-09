@@ -48,6 +48,10 @@ Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
 
+### 0.0.8
+
+new `$.save` function.
+
 ### 0.0.7
 
 support automatic file generation on file creation.

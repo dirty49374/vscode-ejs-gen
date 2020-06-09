@@ -7,6 +7,25 @@ import { extractBlocks, Blocks } from './block';
 
 export const ejsyamlExtension = '.ejsyaml';
 
+const saveFileSplitter = `<SAVE-FILE-a43c7503-5de4-40a3-901a-a2d4c221efb2>`;
+
+const saveOutput = (output: string, outpath: string, generatedFiles: string[]) => {
+  const sections = output.split(saveFileSplitter);
+  console.log(sections);
+  if (sections.length > 1) {
+    while (sections.length > 1) {
+      const text = sections.shift()!;
+      const outpath = sections.shift()!;
+  
+      writeFileSync(outpath, text, 'utf-8');
+      generatedFiles.push(path.basename(outpath))
+    }
+  } else {
+    writeFileSync(outpath, sections[0], 'utf-8');
+    generatedFiles.push(path.basename(outpath))
+  }
+}
+
 class Context {
   public beginMarker = '// {{{ @name';
   public endMarker = '// }}}';
@@ -85,13 +104,17 @@ class Context {
     const ctx = new Context(inputFile, outputFile, null, data, null, this.generatedFiles, this.autogen);
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
-      writeFileSync(ctx.outputFile, output, 'utf-8');
-      this.generatedFiles.push(path.basename(outputFile))
+      saveOutput(output, ctx.outputFile, this.generatedFiles);
     }
   }
 
   cancel() {
     this.canceled = true;
+  }
+
+  save(outputPath: string) {
+    const abspath = this.resolve(outputPath);
+    return `${saveFileSplitter}${abspath}${saveFileSplitter}`;
   }
 
   read(p: string): string | null {
@@ -146,8 +169,7 @@ export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
     const ctx = new Context(inputFile, outputFile, null, data, null, generatedFiles, true);
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
-      writeFileSync(ctx.outputFile, output, 'utf-8');
-      generatedFiles.push(path.basename(outputFile))
+      saveOutput(output, ctx.outputFile, generatedFiles);
     }
   }
 

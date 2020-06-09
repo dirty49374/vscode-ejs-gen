@@ -48,6 +48,14 @@ Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
 
+### 0.0.10
+
+fix `$.outfile()` path resolution bugs.
+
+### 0.0.9
+
+drop `$.save()` and add `$.outfile()` function.
+
 ### 0.0.8
 
 new `$.save` function.

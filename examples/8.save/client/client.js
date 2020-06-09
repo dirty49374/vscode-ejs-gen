@@ -1,3 +1,4 @@
+
 function get() {
   return fetch('/get');
 }

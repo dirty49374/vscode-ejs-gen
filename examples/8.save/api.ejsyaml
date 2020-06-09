@@ -2,6 +2,8 @@ api:
   - get
   - set
 --- |
+<%- $.outfile('client/client.js') _%>
+
 <%_ for (let name of api) { _%>
 function <%- name %>() {
   return fetch('/<%- name %>');
@@ -9,14 +11,17 @@ function <%- name %>() {
 
 <%_ } _%>
 
-<%- $.save('client.js') _%>
+<%- $.outfile('server/server.js') _%>
+
 function register(app) {
 <%_ for (let name of api) { _%>
   app.get('/<%- name %>', (req, res) => {
-    res.send({ api: '<%- name %>' });
+<%- $.block(name.toUpperCase() + '_IMPL', `
+    const result = { api: '${name}' };
+    res.send(result);
+`) %>
   });
 
 <%_ } _%>
 }
 
-<%- $.save('server.js') %>

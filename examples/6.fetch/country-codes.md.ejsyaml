@@ -1,0 +1,11 @@
+countryCodes: !fetchjson https://gist.githubusercontent.com/Goles/3196253/raw/9ca4e7e62ea5ad935bb3580dc0a07d9df033b451/CountryCodes.json
+--- |
+# country codes
+
+name | country code | dial code  |
+-----|--------------|------------|
+<%_ 
+    countryCodes.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0 );
+    for (let country of countryCodes) { _%>
+<%- country.name %> | <%- country.code %> | <%- country.dial_code %> |
+<%_ } _%>

@@ -4,7 +4,7 @@
 	"description": "code generator powered by ejs template engine",
 	"publisher": "dirty49374",
 	"repository": "https://github.com/dirty49374/vscode-ejs-gen",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"engines": {
 		"vscode": "^1.45.0"
 	},
@@ -19,11 +19,15 @@
 		"commands": [
 			{
 				"command": "ejs-gen.enable",
-				"title": "ejs-gen: enable auto-generation of .ejs-gen file"
+				"title": "ejs-gen: enable"
 			},
 			{
 				"command": "ejs-gen.disable",
-				"title": "ejs-gen: disable auto-generation of .ejs-gen file"
+				"title": "ejs-gen: disable"
+			},
+			{
+				"command": "ejs-gen.generate",
+				"title": "ejs-gen: generate current file"
 			}
 		]
 	},

@@ -40,13 +40,18 @@ This extension contributes the following settings:
 
 ## Examples
 
-please check out other examples in [github page](https://github.com/dirty49374/vscode-ejs-gen/examples).
+please check out other examples in [github page](https://github.com/dirty49374/vscode-ejs-gen/tree/master/examples).
 
 ## Known Issues
 
 Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
+
+### 0.0.6
+
+add `!fetch`, `!fetchtext`, `!fetchjson`, `!fetchyaml` custom tag.
+add `ejs-gen.generate` command.
 
 ### 0.0.5
 

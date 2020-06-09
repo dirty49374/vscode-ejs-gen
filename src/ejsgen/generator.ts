@@ -1,86 +1,30 @@
-import * as ejs from 'ejs';
 import * as fs from 'fs';
-import { load, dump, loadAll } from 'js-yaml';
 import { basename } from 'path';
 import { readFileSync, writeFileSync } from 'fs';
 import { render } from 'ejs';
 import * as Path from 'path';
+import { loadYaml, loadYamls, evaluate, dumpYaml } from './yaml';
+import { extractBlocks, Blocks } from './block';
 
 export const ejsyamlExtension = '.ejsyaml';
-export const zz = 1;
-
-interface Block {
-  name?: string;
-  beginMarker?: string;
-  content?: string;
-  endMarker?: string;
-}
-
-interface Blocks {
-  [name: string]: Block;
-}
-
-function escapeRegex(regex: string): string {
-  return regex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-
-function makeMarkerRegex(marker: string): RegExp {
-  const regexp = '^\\s*' + escapeRegex(marker).replace('@name', '([0-9A-Za-z-_:]+)') + '(?:.|\r)*$';
-  return new RegExp(regexp);
-}
-
-function extractBlocks(source: string, beginMarker: string, endMarker: string): Blocks {
-  const beginMarkerRegex = makeMarkerRegex(beginMarker);
-  const endMarkerRegex = makeMarkerRegex(endMarker);
-
-  const blocks: Blocks = {};
-  const lines = source.split('\n');
-
-  let block: Block | null = null;
-  let contents: string[] = [];
-
-  for (let line of lines) {
-    if (block === null) {
-      const m = line.match(beginMarkerRegex);
-      if (m !== null) {
-        block = {
-          name: m[1],
-          beginMarker: line,
-        };
-      }
-    } else {
-      const m = line.match(endMarkerRegex);
-      if (m != null) {
-        block.content = contents.join('\n');
-        block.endMarker = line.endsWith('\r') ? line.substr(0, line.length - 1) : line;
-        blocks[block.name!] = block;
-
-        contents = [];
-        block = null;
-      } else {
-        contents.push(line);
-      }
-    }
-  }
-
-  return blocks;
-}
 
 class Context {
   public beginMarker = '// {{{ @name';
   public endMarker = '// }}}';
   public blocks: Blocks = {};
   public canceled = false;
-  public lastOutput: string | null = null;
   public name: string;
 
   constructor(
     public inputFile: string,
     public outputFile: string,
+    name: string | null,
     public data: any,
-    private generatedFiles: string[]) {
+    public lastOutput: string | null,
+    private generatedFiles: string[],
+    public autogen: boolean) {
 
-    this.name = basename(this.inputFile).split('.')[0];
+    this.name = name || basename(this.inputFile).split('.')[0];
     this.$init();
     this.marker(this.beginMarker, this.endMarker);
   }
@@ -121,6 +65,7 @@ class Context {
 
   out(path: string) {
     this.outputFile = this.resolve(path);
+    this.lastOutput = null;
     this.$init();
   }
 
@@ -138,7 +83,7 @@ class Context {
     const template = readFileSync(inputFile, 'utf-8');
     data = data !== undefined ? data : this.data;
 
-    const ctx = new Context(inputFile, outputFile, data, this.generatedFiles);
+    const ctx = new Context(inputFile, outputFile, null, data, null, this.generatedFiles, this.autogen);
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
       writeFileSync(ctx.outputFile, output, 'utf-8');
@@ -160,21 +105,21 @@ class Context {
   }
 
   fromYaml(text: string) {
-    return load(text);
+    return loadYaml(text);
   }
 
   fromYamls(text: string) {
-    return loadAll(text);
+    return loadYamls(text);
   }
 
   toYaml(doc: any) {
-    return dump(doc);
+    return dumpYaml(doc);
   }
 }
 
-export async function generateFile(ejsyamlPath: string): Promise<string[]> {
+export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
   const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
-  const docs = loadAll(yaml);
+  const docs = await evaluate(loadYamls(yaml));
 
   if (docs.length < 2) {
     throw new Error(".ejsyaml file should have at least 2 documents.")
@@ -187,7 +132,7 @@ export async function generateFile(ejsyamlPath: string): Promise<string[]> {
 
   const generatedFiles: string[] = [];
   for (let template of templates) {
-    const ctx = new Context(inputFile, outputFile, data, generatedFiles);
+    const ctx = new Context(inputFile, outputFile, null, data, null, generatedFiles, true);
     const output = render(template, { ...data, $: ctx }, { filename: inputFile });
     if (!ctx.canceled) {
       writeFileSync(ctx.outputFile, output, 'utf-8');
@@ -196,4 +141,28 @@ export async function generateFile(ejsyamlPath: string): Promise<string[]> {
   }
 
   return generatedFiles;
+}
+
+export const generateText = async (ejsyamlPath: string, outputFile: string, lastOutput: string): Promise<string | null> => {
+  const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
+  const docs = await evaluate(loadYamls(yaml));
+
+  if (docs.length < 2) {
+    throw new Error(".ejsyaml file should have at least 2 documents.")
+  }
+
+  const inputFile = ejsyamlPath;
+  const data = docs[0];
+  const templates = docs.slice(1);
+  if (!outputFile) {
+    outputFile = ejsyamlPath.substr(0, inputFile.length - ejsyamlExtension.length);
+  }
+
+  const generatedFiles: string[] = [];
+  for (let template of templates) {
+    const ctx = new Context(inputFile, outputFile, basename(outputFile).split('.')[0], data, lastOutput, generatedFiles, false);
+    const output = render(template, { ...data, $: ctx }, { filename: inputFile });
+    return ctx.canceled ? null : output;
+  }
+  return null;
 }

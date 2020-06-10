@@ -1,14 +1,21 @@
 null
 --- |
 <%
-  const lines = $.rawBlock('CONFIG').split('\n');
-  const yaml = lines.slice(1, lines.length - 1).join('\n');
-  const data = $.fromYaml(yaml);
+  const { rpcs } = $.dataBlock('CONFIG', {
+      rpcs: []
+  }, 1);
 
-  const rpcs = data ? data.rpcs : [];
-
+  $.modifyBlock('IMPLEMENTATION', code => {
+      for (let rpc of rpcs) {
+        if (!code.includes(rpc)) {
+          code += `\n  ${rpc} = ${rpc}Handler;`;
+        }
+      }
+      return code;
+  });
 -%>
 // <%- $.name %>
+
 <%- $.block('CONFIG', '/*\nrpcs:\n- Ping\n*/') %>
 
 <%
@@ -23,7 +30,6 @@ export interface IRpcServer {
 }
 
 export class RpcServer implements IRpcServer {
-<% for (let name of rpcs) { -%>
-    <%- name %> = <%- name %>Handler;
-<% } -%>
+<%- $.block('IMPLEMENTATION') %>
+
 }

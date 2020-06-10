@@ -3,7 +3,7 @@ import * as path from 'path';
 import { readFileSync, writeFileSync } from 'fs';
 import { render } from 'ejs';
 import { loadYaml, loadYamls, evaluate, dumpYaml } from './yaml';
-import { extractBlocks, Blocks } from './block';
+import { extractBlocks, BlockMarker, BlockMarkerPattern, Blocks, createMarker } from './block';
 
 export const ejsyamlExtension = '.ejsyaml';
 
@@ -30,9 +30,9 @@ const saveOutput = (output: string, outpath: string, generatedFiles: string[]) =
   }
 }
 
+
 class Context {
-  public beginMarker = '// {{{ @name';
-  public endMarker = '// }}}';
+  public markers: BlockMarker[];
   public blocks: Blocks = {};
   public canceled = false;
   public name: string;
@@ -48,17 +48,20 @@ class Context {
     public autogen: boolean) {
 
     this.name = name || path.basename(this.inputFile).split('.')[0];
+    this.markers = [
+      createMarker({ begin: '// {{{ @name', end: '// }}}' }),
+      createMarker({ begin: '/* {{{ @name', end: '   }}} */' }),
+    ];
     this.$init();
-    this.marker(this.beginMarker, this.endMarker);
   }
 
-  private $setMarker(beginMarker: string, endMarker: string) {
-    if (beginMarker.indexOf('@name') < 0) {
-      throw new Error("begin marker must have '@name' mark.");
-    }
-
-    this.beginMarker = beginMarker;
-    this.endMarker = endMarker;
+  private $setMarker(markers: BlockMarkerPattern[]) {
+    this.markers = markers.map(m => {
+      if (m.begin.indexOf('@name') < 0) {
+        throw new Error("begin marker must have '@name' mark.");
+      }
+      return createMarker(m);
+    });
   }
 
   private $init() {
@@ -67,23 +70,57 @@ class Context {
     } catch (e) {
       this.lastOutput = null;
     }
-    this.blocks = extractBlocks(this.lastOutput || '', this.beginMarker, this.endMarker);
+    this.blocks = extractBlocks(this.lastOutput || '', this.markers);
   }
 
-  marker(beginMarker: string, endMarker: string) {
-    this.$setMarker(beginMarker, endMarker);
-    this.blocks = extractBlocks(this.lastOutput || '', this.beginMarker, this.endMarker);
+  marker(markers: BlockMarkerPattern | BlockMarkerPattern[]) {
+    this.$setMarker(markers instanceof Array ? markers : [ markers ]);
+    this.blocks = extractBlocks(this.lastOutput || '', this.markers);
   }
 
   rawBlock(name: string) {
     return this.blocks[name]?.content || '';
   }
 
-  block(name: string, defaultContent?: string) {
+  dataBlock(name: string, defaults: any, markerIndex?: number): any {
+    const block = this.rawBlock(name);
+    const data = this.fromYaml(block) || defaults;
+    this.setBlock(name, this.toYaml(data), markerIndex);
+
+    return data;
+  }
+
+  modifyBlock(name: string, cb: (txt: string) => string, markerIndex?: number): any {
+    const content = this.rawBlock(name);
+    const modified = cb(content);
+    this.setBlock(name, modified, markerIndex);
+    return modified;
+  }
+
+  setBlock(name: string, content: string, markerIndex?: number) {
+    if (this.blocks[name]) {
+      this.blocks[name].content = content;
+    } else {
+      this.blocks[name] = {
+        name: name,
+        beginMarker: this.markers[markerIndex || 0].begin.replace('@name', name),
+        content: content,
+        endMarker: this.markers[markerIndex || 0].end.replace('@name', name),
+        markerIndex: 0,
+      };
+    }
+  }
+
+  block(name: string, defaultContent?: string, markerIndex?: number) {
     const block = this.blocks[name];
-    return block
-      ? `${block.beginMarker}\n${block.content}\n${block.endMarker}`
-      : `${this.beginMarker?.replace('@name', name)}\n${defaultContent || ''}\n${this.endMarker?.replace('@name', name)}`;
+    if (block) {
+      return `${block.beginMarker}\n${block.content}\n${block.endMarker}`;
+    }
+
+    console.log(this.markers);
+    const beginMarker = this.markers[markerIndex || 0].begin?.replace('@name', name);
+    const endMarker = this.markers[markerIndex || 0].end?.replace('@name', name);
+    return `${beginMarker}\n${defaultContent || ''}\n${endMarker}`;
   }
 
   outfile(p: string) {

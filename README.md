@@ -48,6 +48,11 @@ Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
 
+### 0.0.11
+
+support multiple block markers.
+add new `$.dataBlock()`, `$.modifyBlock()` funtions.
+
 ### 0.0.10
 
 fix `$.outfile()` path resolution bugs.

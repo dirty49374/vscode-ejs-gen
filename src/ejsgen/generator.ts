@@ -192,7 +192,8 @@ class Context {
 
 export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
   const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
-  const docs = await evaluate(loadYamls(yaml));
+  console.log('>>>>>>>>>>', path.dirname(ejsyamlPath));
+  const docs = await evaluate(loadYamls(yaml), path.dirname(ejsyamlPath));
 
   if (docs.length < 2) {
     throw new Error(".ejsyaml file should have at least 2 documents.")
@@ -217,7 +218,7 @@ export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
 
 export const generateText = async (ejsyamlPath: string, outputFile: string, lastOutput: string): Promise<string | null> => {
   const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
-  const docs = await evaluate(loadYamls(yaml));
+  const docs = await evaluate(loadYamls(yaml), path.dirname(ejsyamlPath));
 
   if (docs.length < 2) {
     throw new Error(".ejsyaml file should have at least 2 documents.")

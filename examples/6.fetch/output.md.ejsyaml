@@ -1,0 +1,7 @@
+input: !readyaml input.yaml
+--- |
+### colors
+
+<%_ for (let color of input.colors) { _%>
+- <%- color %>
+<%_ } _%>

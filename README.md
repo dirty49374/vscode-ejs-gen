@@ -48,6 +48,10 @@ Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
 
+### 0.0.12
+
+new `!read`, `!readtext`, `!readjson`, `!readyaml` custom tag.
+
 ### 0.0.11
 
 support multiple block markers.

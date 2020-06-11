@@ -48,6 +48,11 @@ Please do not trust others `.ejsgen.yaml` file.
 
 ## Release Notes
 
+
+### 0.0.13
+
+fix `$.lowerFirst()` bug.
+
 ### 0.0.12
 
 new `!read`, `!readtext`, `!readjson`, `!readyaml` custom tag.

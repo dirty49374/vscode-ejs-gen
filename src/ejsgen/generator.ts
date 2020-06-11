@@ -170,7 +170,7 @@ class Context {
   }
 
   lowerFirst(text: string): string {
-    return text[0].toUpperCase() + text.substr(1);
+    return text[0].toLowerCase() + text.substr(1);
   }
 
   fromYaml(text: string) {

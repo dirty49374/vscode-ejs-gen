@@ -134,6 +134,7 @@ const FETCH_SCHEMA = Schema.create([
 export const loadYaml = (data: string) => load(data, { schema: FETCH_SCHEMA });
 export const loadYamls = (data: string) => loadAll(data, null, { schema: FETCH_SCHEMA });
 export const dumpYaml = (doc: any) => dump(doc, { schema: FETCH_SCHEMA });
+export const dumpYamls = (docs: any[]) => docs.map(dumpYaml).join('---\n');
 export const evaluate = async (node: any, cwd: string): Promise<any> => {
   if (node instanceof CustomTag) {
     return await node.evaluate(cwd);

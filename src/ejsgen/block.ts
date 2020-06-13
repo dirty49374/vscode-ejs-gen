@@ -1,13 +1,3 @@
-
-const escapeRegex = (regex: string): string => {
-  return regex.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-
-const makeMarkerRegex = (marker: string): RegExp => {
-  const regexp = '^\\s*' + escapeRegex(marker.trim()).replace('@name', '([0-9A-Za-z-_:]+)') + '(?:.|\r)*$';
-  return new RegExp(regexp);
-}
-
 export interface BlockMarkerPattern {
   begin: string;
   end: string;
@@ -18,25 +8,7 @@ export interface BlockMarker extends BlockMarkerPattern {
   endRegexp: RegExp;
 }
 
-export const createMarker = (pattern: BlockMarkerPattern): BlockMarker => {
-  return {
-    ...pattern,
-    beginRegexp: makeMarkerRegex(pattern.begin),
-    endRegexp: makeMarkerRegex(pattern.end),
-  }
-}
-
-const matchBeginMarker = (line: string, markers: BlockMarker[]): [ RegExpMatchArray | null, number ] => {
-  for (let index = 0; index < markers.length; ++index) {
-    const match = line.match(markers[index].beginRegexp);
-    if (match != null) {
-      return [ match, index ];
-    }
-  }
-  return [ null, -1 ];
-}
-
-interface Block {
+export interface Block {
   name?: string;
   beginMarker?: string;
   content?: string;
@@ -47,6 +19,32 @@ interface Block {
 export interface Blocks {
   [name: string]: Block;
 }
+
+const makeMarkerRegex = (marker: string): RegExp => {
+  const markerRegex = marker
+  .trim()
+  .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+  .replace('@name', '([0-9A-Za-z-_:]+)');
+  return new RegExp(`^\\s*${markerRegex}(?:.|\r)*$`);
+};
+
+const matchBeginMarker = (line: string, markers: BlockMarker[]): [ RegExpMatchArray | null, number ] => {
+  for (let index = 0; index < markers.length; ++index) {
+    const match = line.match(markers[index].beginRegexp);
+    if (match !== null) {
+      return [ match, index ];
+    }
+  }
+  return [ null, -1 ];
+};
+
+export const createMarker = (pattern: BlockMarkerPattern): BlockMarker => {
+  return {
+    ...pattern,
+    beginRegexp: makeMarkerRegex(pattern.begin),
+    endRegexp: makeMarkerRegex(pattern.end),
+  };
+};
 
 export const extractBlocks = (source: string, markers: BlockMarker[]): Blocks => {
   const blocks: Blocks = {};
@@ -81,4 +79,4 @@ export const extractBlocks = (source: string, markers: BlockMarker[]): Blocks =>
   }
 
   return blocks;
-}
+};

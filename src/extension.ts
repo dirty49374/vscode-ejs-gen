@@ -1,70 +1,149 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { generateFile, ejsyamlExtension, generateText } from './ejsgen/generator';
-import { existsSync, readdirSync } from 'fs';
-import { dirname, join, relative, basename } from 'path';
+import { IGeneratorOption, generateTemplate, CancelError } from './ejsgen/generator';
+import { dirname } from 'path';
+import { findTemplateFileFor as findTemplateFileFor, findOutputFilesFor } from './ejsgen/utils';
+import { FileOperation } from './fileOperation';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
 	let enabled = true;
-	const findEjsYamls = (work: string, files?: string[], curr?: string) => {
-		if (!files)
-			files = [];
+	let generating = false;
+	let generation = 0;
 
-		if (!curr)
-			curr = work;
-
-		const fns = readdirSync(curr);
-		for (const fileName of fns) {
-			if (fileName.endsWith(ejsyamlExtension)) {
-				files.push(relative(work, join(curr, fileName)));
+	const generate = async (options: IGeneratorOption) => {
+		generating = true;
+		try {
+			const files = await generateTemplate(options);
+			const message = `${files.length ? files.join(', ') : 'no files'} are created or updated (#${++generation})`;
+			vscode.window.showInformationMessage(message);
+		} catch (e) {
+			if (!(e instanceof CancelError)) {
+				vscode.window.showErrorMessage(e.message);
 			}
 		}
-
-		const parent = dirname(curr);
-		if (parent != curr)
-			findEjsYamls(work, files, parent);
-
-		return files;
-	}
-
-	const matchEjsYamls = (ejsyamls: string[], target: string) => ejsyamls.find(p => {
-		const pattern = basename(p).split('.').slice(0, -1).join('.');
-		const idx = pattern.indexOf('@');
-		if (idx < 0) return false;
-
-		const prefix = pattern.substr(0, idx);
-		const postfix = pattern.substring(idx + 1);
-		const matched = target.startsWith(prefix) && target.endsWith(postfix);
-		return matched;
-	});
-
-	vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-		if (!enabled) {
+		generating = false;
+	};
+	
+	vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
+		const path = document.uri.fsPath;
+		if (!enabled || generating || !path.endsWith('.ejsyaml')) {
 			return;
 		}
 
-		let ejsyamlFileName: string | null = null;
+		const files = findOutputFilesFor(path);
+		for (let file of files) {
+			await generate({
+				fileop: new FileOperation(),
+				input: document.fileName,
+				output: file,
+			});	
+		}
+	});
 
-		if (document.fileName.endsWith(ejsyamlExtension)) {
-			ejsyamlFileName = document.fileName;
-		} else if (existsSync(document.fileName + ejsyamlExtension)) {
-			ejsyamlFileName = document.fileName + ejsyamlExtension;
+	vscode.workspace.onWillSaveTextDocument((e: vscode.TextDocumentWillSaveEvent) => {
+		const path = e.document.uri.fsPath;
+		if (!enabled || generating || path.endsWith('.ejsyaml')) {
+			return;
 		}
 
-		if (ejsyamlFileName !== null) {
-			(async () => {
-				try {
-					const files = await generateFile(ejsyamlFileName);
-					vscode.window.showInformationMessage(`${files.length ? files.join(',') : 'no file'} generated`);
-				} catch (e) {
-					vscode.window.showErrorMessage(e.message);
+		const templatePath = findTemplateFileFor(e.document.uri.fsPath);
+		if (!templatePath) {
+			return;
+		}
+
+		e.waitUntil(generate({
+			fileop: new FileOperation(e.document.uri.path),
+			input: templatePath,
+			output: e.document.uri.fsPath,
+			cwd: dirname(e.document.uri.fsPath),
+		}));
+	});
+
+	vscode.workspace.onDidCreateFiles(async (event: vscode.FileCreateEvent) => {
+		if (!enabled || generating) {
+			return;
+		}
+
+		for (let file of event.files) {
+			if (file.scheme === 'file') {
+				const templatePath = findTemplateFileFor(file.fsPath);
+				if (!templatePath) {
+					continue;
 				}
-			})();
+
+				await generate({
+					fileop: new FileOperation(file.fsPath),
+					input: templatePath,
+					output: file.fsPath,
+					created: true,
+				});
+			}
 		}
+	});
+
+	let generateCommand = vscode.commands.registerCommand('ejs-gen.generate', async () => {
+
+		const wsedit = new vscode.WorkspaceEdit();
+		const filePath = vscode.Uri.file('/Users/swshin/work/vscode-ejs-gen/examples/xxxx.js');
+		vscode.window.showInformationMessage(filePath.toString());
+		wsedit.createFile(filePath, { ignoreIfExists: true });
+		vscode.workspace.applyEdit(wsedit);
+		vscode.window.showInformationMessage('Created a new file: hello/world.md');
+
+		// const editor = vscode.window.activeTextEditor;
+		// if (!editor) {
+		// 	vscode.window.showErrorMessage('no active editor');
+		// 	return;
+		// }
+
+		// const document = vscode.window.activeTextEditor?.document;
+		// if (!document) {
+		// 	vscode.window.showErrorMessage('no active document');
+		// 	return;
+		// }
+
+		// const directory = dirname(document.fileName);
+		// const ejsyamls = findEjsYamls(directory);
+
+		// if (ejsyamls.length === 0) {
+		// 	vscode.window.showInformationMessage('ejs-gen: no .ejsyaml files');
+		// 	return;
+		// }
+
+		// let ejsyaml = matchEjsYamls(ejsyamls, document.fileName);
+		// if (!ejsyaml) {
+		// 	ejsyaml = await vscode.window.showQuickPick(ejsyamls);
+		// 	if (!ejsyaml) {
+		// 		return;
+		// 	}
+		// }
+
+		// const ejsyamlFileName = join(directory, ejsyaml);
+
+		// try {
+		// 	const fileop = new FileOperation();
+		// 	const text = await generateText(ejsyamlFileName, document.fileName, document.getText(), fileop);
+		// 	await fileop.commit();
+		// 	var wholeRange = new vscode.Range(
+		// 		document.positionAt(0),
+		// 		document.positionAt(document.getText().length - 1)
+		// 	);
+		// 	if (text !== null && text !== undefined) {
+		// 		editor.edit(edit => edit.replace(wholeRange, text));
+		// 	} else {
+		// 		vscode.window.showInformationMessage("ejs-gen: cancelled");
+		// 	}
+		// } catch (e) {
+		// 			if (!(e instanceof CancelError)) {
+		// 		if (!(e instanceof CancelError)) {
+		// 		}
+		// 		vscode.window.showErrorMessage(e.message);
+		// 	}
+		// }
 	});
 
 	let enableCommand = vscode.commands.registerCommand('ejs-gen.enable', () => {
@@ -77,105 +156,6 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('ejs-gen: disabled');
 	});
 
-	let generateCommand = vscode.commands.registerCommand('ejs-gen.generate', async (uri) => {
-
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			vscode.window.showErrorMessage('no active editor');
-			return;
-		}
-
-		const document = vscode.window.activeTextEditor?.document;
-		if (!document) {
-			vscode.window.showErrorMessage('no active document');
-			return;
-		}
-
-		const directory = dirname(document.fileName);
-		const ejsyamls = findEjsYamls(directory);
-
-		if (ejsyamls.length == 0) {
-			vscode.window.showInformationMessage('ejs-gen: no .ejsyaml files');
-			return;
-		}
-
-		let ejsyaml = matchEjsYamls(ejsyamls, document.fileName);
-		if (!ejsyaml) {
-			ejsyaml = await vscode.window.showQuickPick(ejsyamls);
-			if (!ejsyaml) {
-				return;
-			}
-		}
-
-		const ejsyamlFileName = join(directory, ejsyaml);
-
-		try {
-			const text = await generateText(ejsyamlFileName, document.fileName, document.getText());
-			var wholeRange = new vscode.Range(
-				document.positionAt(0),
-				document.positionAt(document.getText().length - 1)
-			);
-			if (text != null) {
-				editor.edit(edit => edit.replace(wholeRange, text));
-			} else {
-				vscode.window.showInformationMessage("ejs-gen: cancelled");
-			}
-		} catch (e) {
-			vscode.window.showErrorMessage(e.message);
-		}
-	});
-
-	vscode.workspace.onDidCreateFiles(async (event: vscode.FileCreateEvent) => {
-		if (!enabled) {
-			return;
-		}
-
-		for (let file of event.files) {
-			if (file.scheme === 'file') {
-				const path = file.fsPath;
-				const inputFile = basename(path);
-				const directory = dirname(path);
-				const ejsyamls = findEjsYamls(directory);
-
-				const ejsyaml = ejsyamls.find(p => {
-					const pattern = basename(p).split('.').slice(0, -1).join('.');
-					const idx = pattern.indexOf('@');
-					if (idx < 0) return false;
-
-					const prefix = pattern.substr(0, idx);
-					const postfix = pattern.substring(idx + 1);
-					const matched = inputFile.startsWith(prefix) && inputFile.endsWith(postfix);
-					return matched;
-				});
-
-				if (ejsyaml != null) {
-					const ejsyamlFileName = join(directory, ejsyaml);
-
-					try {
-						const document = await vscode.workspace.openTextDocument(path);
-						const text = await generateText(ejsyamlFileName, path, document.getText());
-
-						console.log(text);
-						var wholeRange = new vscode.Range(
-							document.positionAt(0),
-							document.positionAt(document.getText().length - 1)
-						);
-						if (text != null) {
-							const edit = new vscode.WorkspaceEdit();
-							edit.replace(document.uri, wholeRange, text);
-							vscode.workspace.applyEdit(edit);
-						} else {
-							vscode.window.showInformationMessage("ejs-gen: cancelled");
-						}
-					} catch (e) {
-						vscode.window.showErrorMessage(e.message);
-					}
-
-				}
-			}
-		}
-
-	});
 
 	context.subscriptions.push(enableCommand, disableCommand, generateCommand);
 }

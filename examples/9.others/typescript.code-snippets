@@ -1,0 +1,14 @@
+{
+    "prom snippet": {
+        "scope": "typescript",
+        "prefix": "prom",
+        "body": "new Promise((resolve, reject) => ${1:impl})$2"
+    },
+    "delay snippet": {
+        "scope": "typescript",
+        "prefix": "delay",
+        "body": "const delay = (timeoutMs: number) => new Promise(resolve => setTimeout(resolve, timeoutMs));\nawait delay(${timeout});"
+    }
+}
+
+

@@ -1,5 +1,0 @@
-server: 1.1.1.1
-auth:
-  userId: hello
-  password: world
---- <%- JSON.stringify($.data, null, 4) %>

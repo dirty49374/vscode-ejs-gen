@@ -1,0 +1,20 @@
+prom: |
+  new Promise((resolve, reject) => ${1:impl})$2
+delay: |
+  const delay = (timeoutMs: number) => new Promise(resolve => setTimeout(resolve, timeoutMs));
+  await delay(${timeout});
+--- |
+<%_
+const snippets = Object.entries(this.data)
+  .reduce((sum, e) => ({
+    ...sum,
+    [`${e[0]} snippet`]: {
+      scope: 'typescript',
+      prefix: e[0],
+      body: e[1].trim(),
+    }
+  }), {});
+_%>
+<%- JSON.stringify(snippets, null, 4) %>
+
+

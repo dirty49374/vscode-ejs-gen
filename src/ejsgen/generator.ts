@@ -1,53 +1,53 @@
 import * as fs from 'fs';
-import * as path from 'path';
-import { readFileSync, writeFileSync } from 'fs';
-import { render } from 'ejs';
-import { loadYaml, loadYamls, evaluate, dumpYaml } from './yaml';
+import * as Path from 'path';
+import * as ejs from 'ejs';
+import { loadYaml, loadYamls, evaluate, dumpYaml, dumpYamls } from './yaml';
 import { extractBlocks, BlockMarker, BlockMarkerPattern, Blocks, createMarker } from './block';
 
-export const ejsyamlExtension = '.ejsyaml';
+export class CancelError extends Error {}
+
+export interface IFileOperation {
+  readFile(fsPath: string): string | null;
+  writeFile(fsPath: string, content: string): void;
+  commit(): Promise<string[]>;
+}
+
+export interface IGeneratorOption {
+  input: string;
+  output?: string;
+  data?: any;
+  fileop: IFileOperation;
+  cwd?: string;
+  name?: string;
+  lastOutput?: string;
+  created?: boolean;
+}
 
 const saveFileSplitter = `<SAVE-FILE-a43c7503-5de4-40a3-901a-a2d4c221efb2>`;
 
-const saveOutput = (output: string, outpath: string, generatedFiles: string[]) => {
-  // sections = [ output_text ]
-  //          | [ dummy, path1, text1, path2, text2 ]
-  const sections = output.split(saveFileSplitter);
-
-  if (sections.length > 1) {
-    sections.shift();
-
-    while (sections.length > 1) {
-      const outpath = sections.shift()!;
-      const text = sections.shift()!;
-  
-      writeFileSync(outpath, text, 'utf-8');
-      generatedFiles.push(path.basename(outpath))
-    }
-  } else {
-    writeFileSync(outpath, sections[0], 'utf-8');
-    generatedFiles.push(path.basename(outpath))
-  }
-}
-
-
-class Context {
+class Generator {
   public markers: BlockMarker[];
   public blocks: Blocks = {};
   public canceled = false;
   public name: string;
 
-  constructor(
-    public inputFile: string,
-    public outputFile: string,
-    public cwd: string,
-    name: string | null,
-    public data: any,
-    public lastOutput: string | null,
-    private generatedFiles: string[],
-    public autogen: boolean) {
+  public input: string;
+  public output: string;
+  public cwd: string;
+  public data: any;
+  public lastOutput: string | null;
+  public fileop: IFileOperation;
+  public isNew: boolean;
 
-    this.name = name || path.basename(this.inputFile).split('.')[0];
+  constructor(options: IGeneratorOption) {
+    this.fileop = options.fileop;
+    this.input = options.input;
+    this.output = options.output || options.input.split('.').slice(0, -1).join('.');
+    this.cwd = options.cwd || Path.dirname(options.input);
+    this.data = options.data;
+    this.lastOutput = options.lastOutput || null;
+    this.name = options.name || Path.basename(this.input).split('.')[0];
+    this.isNew = options.created || false;
     this.markers = [
       createMarker({ begin: '// {{{ @name', end: '// }}}' }),
       createMarker({ begin: '/* {{{ @name', end: '   }}} */' }),
@@ -55,26 +55,9 @@ class Context {
     this.$init();
   }
 
-  private $setMarker(markers: BlockMarkerPattern[]) {
-    this.markers = markers.map(m => {
-      if (m.begin.indexOf('@name') < 0) {
-        throw new Error("begin marker must have '@name' mark.");
-      }
-      return createMarker(m);
-    });
-  }
-
-  private $init() {
-    try {
-      this.lastOutput = readFileSync(this.outputFile, 'utf-8');
-    } catch (e) {
-      this.lastOutput = null;
-    }
-    this.blocks = extractBlocks(this.lastOutput || '', this.markers);
-  }
-
+  // block APIs
   marker(markers: BlockMarkerPattern | BlockMarkerPattern[]) {
-    this.$setMarker(markers instanceof Array ? markers : [ markers ]);
+    this.$setMarker(markers instanceof Array ? markers : [markers]);
     this.blocks = extractBlocks(this.lastOutput || '', this.markers);
   }
 
@@ -117,125 +100,128 @@ class Context {
       return `${block.beginMarker}\n${block.content}\n${block.endMarker}`;
     }
 
-    console.log(this.markers);
     const beginMarker = this.markers[markerIndex || 0].begin?.replace('@name', name);
     const endMarker = this.markers[markerIndex || 0].end?.replace('@name', name);
+
     return `${beginMarker}\n${defaultContent || ''}\n${endMarker}`;
   }
 
-  outfile(p: string) {
-    this.outputFile = this.resolve(p);
+  render(ejsPath: string, outputPath: string, data: any) {
+    const inputFile = this.resolvePath(ejsPath);
+    const outputFile = this.resolvePath(outputPath);
+
+    const template = this.fileop.readFile(inputFile);
+    if (template === null) {
+      throw new Error(`ejs file '${inputFile}' not found.`);
+    }
+
+    data = data !== undefined ? data : this.data;
+
+    const ctx = new Generator({
+      input: inputFile,
+      output: outputFile,
+      cwd: Path.dirname(outputFile),
+      data,
+      fileop: this.fileop,
+      created: false,
+    });
+
+    const output = ejs.render(template, { ...data, $: ctx }, { filename: inputFile, context: ctx });
+    this.splitAndWrite(output);
+  }
+
+  outfile(path: string) {
+    this.output = this.resolvePath(path);
     this.lastOutput = null;
     this.$init();
 
-    return `${saveFileSplitter}${this.outputFile}${saveFileSplitter}`;
-  }
-
-  resolve(p: string): string {
-    if (path.isAbsolute(p)) {
-      return p;
-    }
-    return path.resolve(this.cwd, p);
-  }
-
-  render(ejsPath: string, outputPath: string, data: any) {
-    const inputFile = this.resolve(ejsPath);
-    const outputFile = this.resolve(outputPath);
-    
-    const template = readFileSync(inputFile, 'utf-8');
-    data = data !== undefined ? data : this.data;
-
-    const ctx = new Context(inputFile, outputFile, path.dirname(outputFile), null, data, null, this.generatedFiles, this.autogen);
-    const output = render(template, { ...data, $: ctx }, { filename: inputFile });
-    if (!ctx.canceled) {
-      saveOutput(output, ctx.outputFile, this.generatedFiles);
-    }
+    return `${saveFileSplitter}${this.output}${saveFileSplitter}`;
   }
 
   cancel() {
-    this.canceled = true;
+    throw new CancelError();
   }
 
-  read(p: string): string | null {
-    try {
-      const file = path.resolve(path.dirname(this.inputFile), p);
-      return readFileSync(file, 'utf-8');
-    } catch (e) {
-      return null;
+  // utility functions
+  read(path: string): string | null {
+    const file = Path.resolve(Path.dirname(this.input), path);
+    return this.fileop.readFile(file);
+  }
+
+  capitalize = (text: string): string => text[0].toUpperCase() + text.substr(1);
+  uncapitalize = (text: string): string => text[0].toLowerCase() + text.substr(1);
+
+  fromYaml = loadYaml;
+  fromYamls = loadYamls;
+
+  toYaml = dumpYaml;
+  toYamls = dumpYamls;
+
+  dirname = Path.dirname;
+  basename = Path.basename;
+  extname = Path.extname;
+
+  // entry point
+  async generate(): Promise<string[]> {
+    const yaml = this.fileop.readFile(this.input);
+    if (yaml === null) {
+      throw new Error(`'ejsyaml file '${this.input} not found`);
     }
-  }
-
-  upperFirst(text: string): string {
-    return text[0].toUpperCase() + text.substr(1);
-  }
-
-  lowerFirst(text: string): string {
-    return text[0].toLowerCase() + text.substr(1);
-  }
-
-  fromYaml(text: string) {
-    return loadYaml(text);
-  }
-
-  fromYamls(text: string) {
-    return loadYamls(text);
-  }
-
-  toYaml(doc: any) {
-    return dumpYaml(doc);
-  }
-
-  dirname = path.dirname;
-  basename = path.basename;
-  extname = path.extname;
-}
-
-export const generateFile = async (ejsyamlPath: string): Promise<string[]> => {
-  const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
-  console.log('>>>>>>>>>>', path.dirname(ejsyamlPath));
-  const docs = await evaluate(loadYamls(yaml), path.dirname(ejsyamlPath));
-
-  if (docs.length < 2) {
-    throw new Error(".ejsyaml file should have at least 2 documents.")
-  }
-
-  const inputFile = ejsyamlPath;
-  const outputFile = ejsyamlPath.substr(0, inputFile.length - ejsyamlExtension.length);
-  const data = docs[0];
-  const templates = docs.slice(1);
-
-  const generatedFiles: string[] = [];
-  for (let template of templates) {
-    const ctx = new Context(inputFile, outputFile, path.dirname(outputFile), null, data, null, generatedFiles, true);
-    const output = render(template, { ...data, $: ctx }, { filename: inputFile });
-    if (!ctx.canceled) {
-      saveOutput(output, ctx.outputFile, generatedFiles);
+    const [ data, template ] = await evaluate(loadYamls(yaml), Path.dirname(this.input));
+    if (template === undefined) {
+      throw new Error('.ejsyaml file should have at least 2 documents.');
     }
+  
+    if (this.data === undefined) {
+      this.data = data;
+    }
+  
+    const output = ejs.render(template, { ...data, $: this }, { filename: this.input, context: this });
+    this.splitAndWrite(output);
+
+    return await this.fileop.commit();
   }
 
-  return generatedFiles;
+  // internal implementation
+  private $setMarker(markers: BlockMarkerPattern[]) {
+    this.markers = markers.map(m => {
+      if (m.begin.indexOf('@name') < 0) {
+        throw new Error("begin marker must have '@name' mark.");
+      }
+      return createMarker(m);
+    });
+  }
+
+  private $init() {
+    this.lastOutput = this.fileop.readFile(this.output);
+    this.blocks = extractBlocks(this.lastOutput || '', this.markers);
+  }
+
+  private resolvePath(path: string): string {
+    return Path.isAbsolute(path)
+      ? path
+      : Path.resolve(this.cwd, path);
+  }
+
+  private splitAndWrite(output: string) {
+    // sections = [ output_text ]
+    //          | [ dummy, path1, text1, path2, text2 ]
+    const sections = output.split(saveFileSplitter);
+  
+    if (sections.length > 1) {
+      sections.shift();
+  
+      while (sections.length > 1) {
+        const outpath = sections.shift()!;
+        const text = sections.shift()!;
+  
+        this.fileop.writeFile(outpath, text);
+      }
+    } else {
+      this.fileop.writeFile(this.output, sections[0]);
+    }
+  };
 }
 
-export const generateText = async (ejsyamlPath: string, outputFile: string, lastOutput: string): Promise<string | null> => {
-  const yaml = fs.readFileSync(ejsyamlPath, 'utf-8');
-  const docs = await evaluate(loadYamls(yaml), path.dirname(ejsyamlPath));
-
-  if (docs.length < 2) {
-    throw new Error(".ejsyaml file should have at least 2 documents.")
-  }
-
-  const inputFile = ejsyamlPath;
-  const data = docs[0];
-  const templates = docs.slice(1);
-  if (!outputFile) {
-    outputFile = ejsyamlPath.substr(0, inputFile.length - ejsyamlExtension.length);
-  }
-
-  const generatedFiles: string[] = [];
-  for (let template of templates) {
-    const ctx = new Context(inputFile, outputFile, path.dirname(outputFile), path.basename(outputFile).split('.')[0], data, lastOutput, generatedFiles, false);
-    const output = render(template, { ...data, $: ctx }, { filename: inputFile });
-    return ctx.canceled ? null : output;
-  }
-  return null;
-}
+export const generateTemplate = async (options: IGeneratorOption) =>
+  await new Generator(options).generate();

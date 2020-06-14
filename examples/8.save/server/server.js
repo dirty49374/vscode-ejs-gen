@@ -1,18 +1,18 @@
 
 function register(app) {
-  app.get('/get', (req, res) => {
-// {{{ GET_IMPL
+  app.get('/get2', (req, res) => {
+// {{{ GET2_IMPL
 
-    const result = { api: 'get' };
+    const result = { api: 'get2' };
     res.send(result);
 
 // }}}
   });
 
-  app.get('/set', (req, res) => {
-// {{{ SET_IMPL
+  app.get('/set2', (req, res) => {
+// {{{ SET2_IMPL
 
-    const result = { api: 'set' };
+    const result = { api: 'set2' };
     res.send(result);
 
 // }}}

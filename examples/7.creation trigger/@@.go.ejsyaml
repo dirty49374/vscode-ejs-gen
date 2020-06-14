@@ -1,8 +1,8 @@
 null
 --- |
 <%_
-  // if (!$.created) { $.cancel(); return; }
-  const package = $.basename($.dirname($.outputFile));
+  if (!this.isNew) { this.cancel(); }
+  const package = this.basename(this.dirname(this.output));
 _%>
 /*
   Copyright 2020 dirty49374
@@ -19,13 +19,12 @@ _%>
   See the License for the specific language governing permissions and
   limitations under the License.
 */
-// <%- this.isFirst() %>
 
 package <%- package %>
 
 <%_
-    if (package == $.name) {
-      const typeName = $.upperFirst(package);
+    if (package == this.name) {
+      const typeName = this.capitalize(package);
 _%>
 type <%- typeName %> struct {
 }

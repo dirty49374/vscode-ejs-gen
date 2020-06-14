@@ -1,6 +1,6 @@
 api:
-  - get
-  - set
+  - get2
+  - set2
 --- |
 <%- $.outfile('client/client.js') _%>
 

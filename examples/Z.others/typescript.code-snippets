@@ -10,5 +10,3 @@
         "body": "const delay = (timeoutMs: number) => new Promise(resolve => setTimeout(resolve, timeoutMs));\nawait delay(${timeout});"
     }
 }
-
-

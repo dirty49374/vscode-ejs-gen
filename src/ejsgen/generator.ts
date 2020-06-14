@@ -16,6 +16,7 @@ export interface IGeneratorOption {
   input: string;
   output?: string;
   data?: any;
+  template?: string;
   fileop: IFileOperation;
   cwd?: string;
   name?: string;
@@ -31,13 +32,15 @@ class Generator {
   public canceled = false;
   public name: string;
 
+  public fileop: IFileOperation;
   public input: string;
   public output: string;
   public cwd: string;
   public data: any;
+  public template?: string;
   public lastOutput: string | null;
-  public fileop: IFileOperation;
   public isNew: boolean;
+  public skipped: boolean = false;
 
   constructor(options: IGeneratorOption) {
     this.fileop = options.fileop;
@@ -45,6 +48,7 @@ class Generator {
     this.output = options.output || options.input.split('.').slice(0, -1).join('.');
     this.cwd = options.cwd || Path.dirname(options.input);
     this.data = options.data;
+    this.template = options.template;
     this.lastOutput = options.lastOutput || null;
     this.name = options.name || Path.basename(this.output).split('.')[0];
     this.isNew = options.created || false;
@@ -106,28 +110,26 @@ class Generator {
     return `${beginMarker}\n${defaultContent || ''}\n${endMarker}`;
   }
 
-  render(ejsPath: string, outputPath: string, data: any) {
-    const inputFile = this.resolvePath(ejsPath);
-    const outputFile = this.resolvePath(outputPath);
+  render(inputPath: string, outputPath: string, data: any) {
+    const input = this.resolvePath(inputPath);
+    const output = this.resolvePath(outputPath);
 
-    const template = this.fileop.readFile(inputFile);
+    const template = this.fileop.readFile(input);
     if (template === null) {
-      throw new Error(`ejs file '${inputFile}' not found.`);
+      throw new Error(`ejs file '${input}' not found.`);
     }
 
     data = data !== undefined ? data : this.data;
 
     const ctx = new Generator({
-      input: inputFile,
-      output: outputFile,
-      cwd: Path.dirname(outputFile),
-      data,
       fileop: this.fileop,
+      input: input,
+      output: output,
+      cwd: Path.dirname(output),
+      data,
       created: false,
     });
-
-    const output = ejs.render(template, { ...data, $: ctx }, { filename: inputFile, context: ctx });
-    this.splitAndWrite(output);
+    ctx.execute(template);
   }
 
   outfile(path: string) {
@@ -140,6 +142,10 @@ class Generator {
 
   cancel() {
     throw new CancelError();
+  }
+
+  skip() {
+    this.skipped = true;
   }
 
   // utility functions
@@ -162,24 +168,46 @@ class Generator {
   extname = Path.extname;
 
   // entry point
-  async generate(): Promise<string[]> {
-    const yaml = this.fileop.readFile(this.input);
-    if (yaml === null) {
-      throw new Error(`'ejsyaml file '${this.input} not found`);
-    }
-    const [ data, template ] = await evaluate(loadYamls(yaml), Path.dirname(this.input));
-    if (template === undefined) {
-      throw new Error('.ejsyaml file should have at least 2 documents.');
-    }
-  
-    if (this.data === undefined) {
-      this.data = data;
-    }
-  
-    const output = ejs.render(template, { ...data, $: this }, { filename: this.input, context: this });
-    this.splitAndWrite(output);
+  private execute(template: string) {
+    const result = ejs.render(template, { ...this.data, $: this }, { filename: this.input, context: this });
 
-    return await this.fileop.commit();
+    if (this.skipped) {
+      return;
+    }
+
+    const sections = result.split(saveFileSplitter);
+    if (sections.length > 1) {
+      sections.shift();
+  
+      while (sections.length > 1) {
+        const outpath = sections.shift()!;
+        const text = sections.shift()!;
+  
+        this.fileop.writeFile(outpath, text);
+      }
+    } else {
+      this.fileop.writeFile(this.output, sections[0]);
+    }
+  }
+
+  async generate(): Promise<void> {
+    if (this.template === undefined) {
+      const yaml = this.fileop.readFile(this.input);
+      if (yaml === null) {
+        throw new Error(`'ejsyaml file '${this.input} not found`);
+      }
+      const [ data, template ] = await evaluate(loadYamls(yaml), Path.dirname(this.input));
+      if (template === undefined) {
+        throw new Error('.ejsyaml file should have at least 2 documents.');
+      }
+    
+      if (this.data === undefined) {
+        this.data = data;
+      }
+      this.template = template;
+    }
+  
+    this.execute(this.template!);
   }
 
   // internal implementation
@@ -202,26 +230,9 @@ class Generator {
       ? path
       : Path.resolve(this.cwd, path);
   }
-
-  private splitAndWrite(output: string) {
-    // sections = [ output_text ]
-    //          | [ dummy, path1, text1, path2, text2 ]
-    const sections = output.split(saveFileSplitter);
-  
-    if (sections.length > 1) {
-      sections.shift();
-  
-      while (sections.length > 1) {
-        const outpath = sections.shift()!;
-        const text = sections.shift()!;
-  
-        this.fileop.writeFile(outpath, text);
-      }
-    } else {
-      this.fileop.writeFile(this.output, sections[0]);
-    }
-  };
 }
 
-export const generateTemplate = async (options: IGeneratorOption) =>
+export const generateTemplate = async (options: IGeneratorOption) => {
   await new Generator(options).generate();
+  return await options.fileop.commit();
+};

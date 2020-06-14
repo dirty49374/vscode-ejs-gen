@@ -1,0 +1,9 @@
+names:
+    - john
+    - bob
+--- |
+<%_
+    this.render('names.js.ejs', 'names.js');
+    this.render('names.cs.ejs', 'names.cs');
+    this.skip();
+_%>

@@ -1,0 +1,7 @@
+namespace Project {
+    static class Names {
+    <%_ for (let name of names) { _%>
+        const string NAME_<%- name.toUpperCase() %> = '<%- name %>';
+    <%_ } _%>
+    }
+}

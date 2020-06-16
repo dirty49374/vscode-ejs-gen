@@ -1,7 +1,13 @@
-<%- this.outfile('others-1.txt') _%>
-others-1
---------
+<%- this.outfile('names.md') _%>
+## names
+
+<%_ for (let name of names) { _%>
+  * NAME_<%- name.toUpperCase() %> `<%- name %>`
+<%_ } _%>
+
 <%- this
-.outfile('others-2.txt') _%>
-others-2
---------
+.outfile('names.csv') _%>
+id,name
+<%_ for (let name of names) { _%>
+NAME_<%- name.toUpperCase() %>,<%- name %>
+<%_ } _%>

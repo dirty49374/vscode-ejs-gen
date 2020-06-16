@@ -1,10 +1,11 @@
 names:
     - john
     - bob
+    - marry
 --- |
 <%_
-    // this.render('names.js.ejs', 'names.js', this.data);
-    // this.render('names.cs.ejs', 'names.cs', this.data);
+    this.render('names.js.ejs', 'names.js', this.data);
+    this.render('names.cs.ejs', 'names.cs', this.data);
     this.render('others.ejs', 'others', this.data);
     this.skip();
 _%>

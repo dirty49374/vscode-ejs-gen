@@ -46,7 +46,7 @@ class Generator {
     this.cwd = options.cwd || Path.dirname(options.input);
     this.data = options.data;
     this.lastOutput = options.lastOutput || null;
-    this.name = options.name || Path.basename(this.input).split('.')[0];
+    this.name = options.name || Path.basename(this.output).split('.')[0];
     this.isNew = options.created || false;
     this.markers = [
       createMarker({ begin: '// {{{ @name', end: '// }}}' }),

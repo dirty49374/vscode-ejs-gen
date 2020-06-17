@@ -2,7 +2,7 @@
 
 EJS Code Generator
 
-![screen shot](https://raw.githubusercontent.com/dirty49374/vscode-ejs-gen/master/docs/screenshot.png)
+![screen shot](https://raw.githubusercontent.com/dirty49374/vscode-ejs-gen/master/images/screencast1.png)
 
 ## Features
 

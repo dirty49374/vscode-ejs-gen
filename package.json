@@ -4,7 +4,7 @@
 	"description": "code generator powered by ejs template engine",
 	"publisher": "dirty49374",
 	"repository": "https://github.com/dirty49374/vscode-ejs-gen",
-	"version": "0.0.19",
+	"version": "0.0.20",
 	"icon": "images/icon.png",
 	"galleryBanner": {
 		"color": "#ffe04b",

@@ -5,7 +5,7 @@ export const logdebug = (...args: any[]) => console.log(...args);
 
 const matchFileName = (genericTplFileName: string, fileName: string): boolean => {
     const pattern = genericTplFileName.slice(0, - '.ejsyaml'.length).split(/@+/, 2);
-    return fileName.startsWith(pattern[0]) && fileName.endsWith(pattern[0]);
+    return fileName.startsWith(pattern[0]) && fileName.endsWith(pattern[1]);
 };
 
 const findGenericTemplateFor = (directory: string, fileName: string, level: number = 0): string | null => {

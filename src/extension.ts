@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { IGeneratorOption, generateTemplate, CancelError } from './ejsgen/generator';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { findTemplateFileFor as findTemplateFileFor, findOutputFilesFor } from './ejsgen/utils';
 import { FileOperation } from './fileOperation';
 
@@ -28,20 +28,51 @@ export function activate(context: vscode.ExtensionContext) {
 		generating = false;
 	};
 	
-	vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
-		const path = document.uri.fsPath;
-		if (!enabled || generating || !path.endsWith('.ejsyaml')) {
-			return;
-		}
+	const getTriggeredFiles = (document: vscode.TextDocument): string[] => {
+		const text = document.getText();
+		const firstLine = text.split(/\r?\n/, 1)[0];
+		const triggerRegexp = /ejsgen-trigger:(.*)/;
 
+		const match = firstLine.match(triggerRegexp);
+		if (match) {
+			let line = match[1].trim();
+			if (line.endsWith('_%>')) line = line.substr(0, line.length - 3).trim();
+
+			const files = line.split(',');
+			return files.map(p => join(dirname(document.uri.fsPath), p.trim()));
+		}
+		return [];
+	}
+
+	const generatePath = async (path: string) => {
 		const files = findOutputFilesFor(path);
 		for (let file of files) {
 			await generate({
 				fileop: new FileOperation(),
-				input: document.fileName,
+				input: path,
 				output: file,
 			});	
 		}
+	}
+
+	vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
+		const path = document.uri.fsPath;
+		if (!enabled || generating) {
+			return;
+		}
+		if (path.endsWith('.ejsyaml')) {
+			await generatePath(path);
+		}
+
+		if (path.endsWith('.ejs')) {
+			const triggeredFiles = getTriggeredFiles(document);
+			for (const file of triggeredFiles) {
+				if (file.endsWith('.ejsyaml')) {
+					await generatePath(file);
+				}
+			}
+		}
+		return;
 	});
 
 	vscode.workspace.onWillSaveTextDocument((e: vscode.TextDocumentWillSaveEvent) => {

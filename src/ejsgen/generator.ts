@@ -26,6 +26,7 @@ export interface IGeneratorOption {
 
 const saveFileSplitter = `<SAVE-FILE-a43c7503-5de4-40a3-901a-a2d4c221efb2>`;
 
+console.log('initialized ejs-yaml');
 class Generator {
   public markers: BlockMarker[];
   public blocks: Blocks = {};
@@ -169,7 +170,7 @@ class Generator {
 
   // entry point
   private execute(template: string) {
-    const result = ejs.render(template, { ...this.data, $: this }, { filename: this.input, context: this });
+    const result = ejs.render(template, { ...this.data, $: this }, { filename: this.input, context: this }) +'///';
 
     if (this.skipped) {
       return;

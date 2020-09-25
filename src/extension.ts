@@ -5,6 +5,7 @@ import { IGeneratorOption, generateTemplate, CancelError } from './ejsgen/genera
 import { dirname, join } from 'path';
 import { findTemplateFileFor as findTemplateFileFor, findOutputFilesFor } from './ejsgen/utils';
 import { FileOperation } from './fileOperation';
+import * as glob from 'glob';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -38,8 +39,12 @@ export function activate(context: vscode.ExtensionContext) {
 			let line = match[1].trim();
 			if (line.endsWith('_%>')) line = line.substr(0, line.length - 3).trim();
 
-			const files = line.split(',');
-			return files.map(p => join(dirname(document.uri.fsPath), p.trim()));
+			const patterns = line.split(',')
+				.map(p => join(dirname(document.uri.fsPath), p.trim()));
+			const files = patterns
+				.map(p => glob.sync(p))
+				.reduce((sum: string[], p: string[]) => [ ...sum, ...p ], []);
+			return files;
 		}
 		return [];
 	}
